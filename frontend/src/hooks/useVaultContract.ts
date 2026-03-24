@@ -31,6 +31,7 @@ import {
     extractStateChanges,
     formatFeeBreakdown,
 } from '../utils/simulation';
+import { eventPayloadDigest } from '../utils/auditVerification';
 
 const EVENTS_PAGE_SIZE = 20;
 
@@ -770,6 +771,9 @@ export const useVaultContract = () => {
                 const valueXdr = ev.value?.xdr;
                 const eventType = topic0 ? getEventTypeFromTopic(topic0) : 'unknown';
                 const { actor, details } = valueXdr ? parseEventValue(valueXdr, eventType) : { actor: '', details: {} };
+                const topicFingerprint =
+                    ev.topic && ev.topic.length > 0 ? ev.topic.join('\x1e') : '';
+                const payloadDigest = valueXdr ? eventPayloadDigest(valueXdr) : '';
                 return {
                     id: ev.id,
                     type: eventType,
@@ -779,6 +783,10 @@ export const useVaultContract = () => {
                     details: { ...details, ledger: ev.ledger },
                     eventId: ev.id,
                     pagingToken: ev.pagingToken,
+                    contractId: ev.contractId ?? env.contractId,
+                    topicFingerprint,
+                    payloadDigest,
+                    callSucceeded: typeof ev.inSuccessfulContractCall === 'boolean' ? ev.inSuccessfulContractCall : undefined,
                 };
             });
 
@@ -787,6 +795,26 @@ export const useVaultContract = () => {
             console.error('getVaultEvents', e);
             return { activities: [], latestLedger: '0', hasMore: false };
         }
+    };
+
+    /**
+     * Paginate Soroban getEvents until exhausted or maxEvents reached.
+     * Used for audit log integrity over the full fetched history (not just the first page).
+     */
+    const getAllVaultEventsForAudit = async (maxEvents: number = 2000): Promise<GetVaultEventsResult> => {
+        const aggregated: VaultActivity[] = [];
+        let cursor: string | undefined;
+        let latestLedger = '0';
+        const pageLimit = 200;
+        while (aggregated.length < maxEvents) {
+            const page = await getVaultEvents(cursor, Math.min(pageLimit, maxEvents - aggregated.length));
+            latestLedger = page.latestLedger;
+            aggregated.push(...page.activities);
+            if (!page.hasMore || !page.cursor) break;
+            cursor = page.cursor;
+            if (page.activities.length === 0) break;
+        }
+        return { activities: aggregated, latestLedger, hasMore: false };
     };
 
     const simulateTransaction = async (
@@ -1284,7 +1312,7 @@ export const useVaultContract = () => {
     return {
         proposeTransfer, approveProposal, rejectProposal, executeProposal,
         addSigner, removeSigner, updateThreshold,
-        getDashboardStats, getVaultEvents, loading,
+        getDashboardStats, getVaultEvents, getAllVaultEventsForAudit, loading,
         simulateProposeTransfer, simulateApproveProposal, simulateExecuteProposal, simulateRejectProposal,
         getProposalSignatures, remindSigner, exportSignatures,
         addComment, editComment, getProposalComments,
