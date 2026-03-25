@@ -87,7 +87,7 @@ fn test_amount_based_threshold_strategy_boundaries() {
         &s1,
         &user,
         &token,
-        &500,
+        &499,
         &Symbol::new(&env, "tier"),
         &Priority::Normal,
         &Vec::new(&env),

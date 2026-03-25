@@ -87,7 +87,7 @@ pub struct InitConfig {
 
 /// Vault configuration
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Config {
     /// List of authorized signers
     pub signers: Vec<Address>,
@@ -154,7 +154,7 @@ pub struct ProposalAmendment {
 
 /// Threshold strategy for dynamic approval requirements
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ThresholdStrategy {
     /// Fixed threshold (original behavior)
     Fixed,
@@ -192,7 +192,7 @@ pub struct AmountTier {
 
 /// Time-based threshold configuration
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TimeBasedThreshold {
     /// Initial threshold
     pub initial_threshold: u32,
@@ -504,7 +504,7 @@ pub struct StreamingPayment {
 }
 
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VelocityConfig {
     /// Maximum number of transfers allowed in the window
     pub limit: u32,
@@ -621,7 +621,7 @@ pub struct GasConfig {
 }
 
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StakingConfig {
     pub enabled: bool,
     pub min_amount: i128,
@@ -793,6 +793,7 @@ pub enum AuditAction {
     RemoveSigner = 7,
     UpdateLimits = 8,
     UpdateThreshold = 9,
+    AbstainProposal = 10,
 }
 
 /// Audit trail entry with cryptographic verification
@@ -883,7 +884,7 @@ pub struct TemplateOverrides {
 
 /// Configuration for automatic retry of failed proposal executions
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RetryConfig {
     /// Whether retry logic is enabled
     pub enabled: bool,
@@ -1088,7 +1089,7 @@ pub struct Dispute {
 
 /// Recovery configuration stored on-chain
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RecoveryConfig {
     /// List of trusted guardians
     pub guardians: Vec<Address>,

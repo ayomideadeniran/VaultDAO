@@ -690,6 +690,25 @@ pub fn remove_from_blacklist(env: &Env, addr: &Address) {
         .remove(&DataKey::Blacklist(addr.clone()));
 }
 
+pub fn validate_recipient_list(env: &Env, recipient: &Address) -> Result<(), VaultError> {
+    let mode = get_list_mode(env);
+    match mode {
+        ListMode::Disabled => Ok(()),
+        ListMode::Whitelist => {
+            if !is_whitelisted(env, recipient) {
+                return Err(VaultError::RecipientNotWhitelisted);
+            }
+            Ok(())
+        }
+        ListMode::Blacklist => {
+            if is_blacklisted(env, recipient) {
+                return Err(VaultError::RecipientBlacklisted);
+            }
+            Ok(())
+        }
+    }
+}
+
 // ============================================================================
 // Velocity Checking (Sliding Window)
 // ============================================================================
