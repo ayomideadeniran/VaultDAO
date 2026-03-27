@@ -1834,3 +1834,38 @@ pub fn get_delegation(_env: &Env, _delegator: &Address) -> Option<crate::types::
 
 #[allow(dead_code)]
 pub fn set_delegation(_env: &Env, _delegation: &crate::types::Delegation) {}
+
+// ============================================================================
+// Cross-Vault
+// ============================================================================
+
+pub fn set_cross_vault_config(env: &Env, config: &crate::types::CrossVaultConfig) {
+    env.storage()
+        .instance()
+        .set(&FeatureKey::CrossVaultConfig, config);
+}
+
+pub fn get_cross_vault_config(env: &Env) -> Option<crate::types::CrossVaultConfig> {
+    env.storage().instance().get(&FeatureKey::CrossVaultConfig)
+}
+
+pub fn set_cross_vault_proposal(
+    env: &Env,
+    proposal_id: u64,
+    cv: &crate::types::CrossVaultProposal,
+) {
+    let key = FeatureKey::CrossVaultProposal(proposal_id);
+    env.storage().persistent().set(&key, cv);
+    env.storage()
+        .persistent()
+        .extend_ttl(&key, PERSISTENT_TTL_THRESHOLD, PERSISTENT_TTL);
+}
+
+pub fn get_cross_vault_proposal(
+    env: &Env,
+    proposal_id: u64,
+) -> Option<crate::types::CrossVaultProposal> {
+    env.storage()
+        .persistent()
+        .get(&FeatureKey::CrossVaultProposal(proposal_id))
+}

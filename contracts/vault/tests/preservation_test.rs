@@ -126,8 +126,8 @@ fn test_existing_functionality_preserved() {
         let path = src_dir.join(module);
         assert!(path.exists(), "Module {module} should exist");
 
-        let content = fs::read_to_string(&path)
-            .unwrap_or_else(|_| panic!("Should be able to read {module}"));
+        let content =
+            fs::read_to_string(&path).unwrap_or_else(|_| panic!("Should be able to read {module}"));
 
         assert!(!content.is_empty(), "Module {module} should not be empty");
     }

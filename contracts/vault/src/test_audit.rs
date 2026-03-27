@@ -58,10 +58,7 @@ fn verify_hash_chain(client: &VaultDAOClient, start_id: u64, end_id: u64) -> boo
     let mut prev_hash = 0u64;
     for i in start_id..=end_id {
         let entry = client.get_audit_entry(&i);
-        assert_eq!(
-            entry.prev_hash, prev_hash,
-            "Hash chain broken at entry {i}",
-        );
+        assert_eq!(entry.prev_hash, prev_hash, "Hash chain broken at entry {i}",);
         prev_hash = entry.hash;
     }
     true

@@ -1002,3 +1002,32 @@ pub fn emit_stream_claimed(env: &Env, stream_id: u64, recipient: &Address, amoun
         (recipient.clone(), amount),
     );
 }
+
+pub fn emit_cross_vault_proposed(
+    env: &Env,
+    proposal_id: u64,
+    proposer: &Address,
+    action_count: u32,
+) {
+    env.events().publish(
+        (Symbol::new(env, "cv_proposed"), proposal_id),
+        (proposer.clone(), action_count),
+    );
+}
+
+pub fn emit_cross_vault_executed(
+    env: &Env,
+    proposal_id: u64,
+    executor: &Address,
+    success_count: u32,
+) {
+    env.events().publish(
+        (Symbol::new(env, "cv_executed"), proposal_id),
+        (executor.clone(), success_count),
+    );
+}
+
+pub fn emit_cross_vault_config_set(env: &Env, admin: &Address) {
+    env.events()
+        .publish((Symbol::new(env, "cv_config_set"),), admin.clone());
+}
