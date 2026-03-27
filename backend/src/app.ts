@@ -3,6 +3,8 @@ import type { BackendEnv } from "./config/env.js";
 import type { BackendRuntime } from "./server.js";
 import { createHealthRouter } from "./modules/health/health.routes.js";
 import { createSnapshotRouter } from "./modules/snapshots/snapshots.routes.js";
+import { createProposalsRouter } from "./modules/proposals/proposals.routes.js";
+import { createRecurringRouter } from "./modules/recurring/recurring.routes.js";
 import { error } from "./shared/http/response.js";
 import { createRateLimitMiddleware } from "./shared/http/rateLimit.js";
 import {
@@ -35,6 +37,14 @@ export function createApp(env: BackendEnv, runtime: BackendRuntime) {
   app.use(express.json());
   app.use(createHealthRouter(env, runtime));
   app.use(createSnapshotRouter(runtime.snapshotService));
+  app.use(
+    "/api/v1/proposals",
+    createProposalsRouter(runtime.proposalActivityAggregator),
+  );
+  app.use(
+    "/api/v1/recurring",
+    createRecurringRouter(runtime.recurringIndexerService),
+  );
 
   app.use((_request, response) => {
     error(response, { message: "Not Found", status: 404 });
