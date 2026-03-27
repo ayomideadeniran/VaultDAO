@@ -37,6 +37,7 @@ fn setup(env: &Env) -> (VaultDAOClient<'static>, Address, Address) {
             staking_config: crate::types::StakingConfig::default(),
             pre_execution_hooks: Vec::new(env),
             post_execution_hooks: Vec::new(env),
+            quorum_percentage: 0,
         },
     );
 
