@@ -830,6 +830,10 @@ impl VaultDAO {
         // Check expiration (only if expiration is enabled, i.e., expires_at > 0)
         let current_ledger = env.ledger().sequence() as u64;
         if proposal.expires_at > 0 && current_ledger > proposal.expires_at {
+            // Only refund once — guard against double-refund if already Expired
+            if proposal.status != ProposalStatus::Expired {
+                storage::refund_spending_limits(&env, proposal.amount);
+            }
             proposal.status = ProposalStatus::Expired;
             storage::set_proposal(&env, &proposal);
             storage::metrics_on_expiry(&env);
@@ -962,6 +966,10 @@ impl VaultDAO {
         // Check expiration
         let current_ledger = env.ledger().sequence() as u64;
         if proposal.expires_at > 0 && current_ledger > proposal.expires_at {
+            // Only refund once — guard against double-refund if already Expired
+            if proposal.status != ProposalStatus::Expired {
+                storage::refund_spending_limits(&env, proposal.amount);
+            }
             proposal.status = ProposalStatus::Expired;
             storage::set_proposal(&env, &proposal);
             storage::metrics_on_expiry(&env);
@@ -1081,6 +1089,10 @@ impl VaultDAO {
         // Check expiration (even approved proposals can expire)
         let current_ledger = env.ledger().sequence() as u64;
         if current_ledger > proposal.expires_at {
+            // Only refund once — guard against double-refund if already Expired
+            if proposal.status != ProposalStatus::Expired {
+                storage::refund_spending_limits(&env, proposal.amount);
+            }
             proposal.status = ProposalStatus::Expired;
             storage::set_proposal(&env, &proposal);
             storage::metrics_on_expiry(&env);
