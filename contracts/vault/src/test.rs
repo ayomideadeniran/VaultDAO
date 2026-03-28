@@ -12728,3 +12728,81 @@ fn test_batch_below_threshold_executes_immediately() {
     let proposal = client.get_proposal(&proposal_id);
     assert_eq!(proposal.status, ProposalStatus::Executed);
 }
+
+#[test]
+fn test_reputation_decay_persisted_on_propose() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(VaultDAO, ());
+    let client = VaultDAOClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let proposer = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let token = env
+        .register_stellar_asset_contract_v2(admin.clone())
+        .address();
+    soroban_sdk::token::StellarAssetClient::new(&env, &token).mint(&contract_id, &1000);
+
+    let mut signers = Vec::new(&env);
+    signers.push_back(admin.clone());
+    signers.push_back(proposer.clone());
+
+    client.initialize(&admin, &default_init_config(&env, signers, 1));
+    client.set_role(&admin, &proposer, &Role::Treasurer);
+
+    // Boost proposer score above 500: proposer approves proposals (REP_APPROVAL_BONUS=2 each)
+    for _ in 0..5u32 {
+        let pid = client.propose_transfer(
+            &admin,
+            &recipient,
+            &token,
+            &10,
+            &Symbol::new(&env, "boost"),
+            &Priority::Normal,
+            &Vec::new(&env),
+            &ConditionLogic::And,
+            &0,
+        );
+        client.approve_proposal(&proposer, &pid);
+    }
+
+    let score_after_boost = client.get_reputation(&proposer).score;
+    assert!(
+        score_after_boost > 500,
+        "score should be above neutral after approvals"
+    );
+
+    // Advance exactly 1 full decay period (17_280 * 30 = 518_400 ledgers).
+    // Using exactly 518_400 keeps us within the instance TTL (also 518_400 ledgers).
+    env.ledger()
+        .set_sequence_number(env.ledger().sequence() + 518_400);
+
+    // Second proposal triggers apply_reputation_decay and persists the result
+    client.propose_transfer(
+        &proposer,
+        &recipient,
+        &token,
+        &10,
+        &Symbol::new(&env, "p2"),
+        &Priority::Normal,
+        &Vec::new(&env),
+        &ConditionLogic::And,
+        &0,
+    );
+
+    // The stored score must now be lower (decay persisted), not the pre-decay value
+    let stored_rep = client.get_reputation(&proposer);
+    assert!(
+        stored_rep.score < score_after_boost,
+        "decay must be persisted: stored score {} should be < pre-decay score {}",
+        stored_rep.score,
+        score_after_boost
+    );
+    // last_decay_ledger must have been updated
+    assert!(
+        stored_rep.last_decay_ledger > 0,
+        "last_decay_ledger must be set after decay"
+    );
+}
