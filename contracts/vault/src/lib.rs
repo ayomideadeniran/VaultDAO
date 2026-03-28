@@ -364,8 +364,9 @@ impl VaultDAO {
 
         // 7. Check per-proposal spending limit with reputation boost
         // High reputation (800+) gets 2x limit, very high (900+) gets 3x
-        let rep = storage::get_reputation(&env, &proposer);
-        storage::apply_reputation_decay(&env, &mut rep.clone());
+        let mut rep = storage::get_reputation(&env, &proposer);
+        storage::apply_reputation_decay(&env, &mut rep);
+        storage::set_reputation(&env, &proposer, &rep);
         let adjusted_spending_limit = if rep.score >= 900 {
             config.spending_limit * 3
         } else if rep.score >= 800 {
@@ -3197,6 +3198,7 @@ impl VaultDAO {
     pub fn get_reputation(env: Env, addr: Address) -> Reputation {
         let mut rep = storage::get_reputation(&env, &addr);
         storage::apply_reputation_decay(&env, &mut rep);
+        storage::set_reputation(&env, &addr, &rep);
         rep
     }
 
