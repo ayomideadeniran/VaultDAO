@@ -4713,9 +4713,13 @@ impl VaultDAO {
             return Err(VaultError::RetryError);
         }
 
-        // Exponential backoff: initial_backoff * 2^(retry_count - 1), capped at 2^10
-        let exponent = core::cmp::min(retry_state.retry_count - 1, 10);
-        let backoff = retry_config.initial_backoff_ledgers * (1u64 << exponent);
+        // Exponential backoff: initial_backoff << (retry_count - 1), capped at 7 days (120,960 ledgers)
+        let max_backoff = 17_280 * 7; // 7 days in ledgers
+        let exponent = core::cmp::min(retry_state.retry_count - 1, 30); // Prevent overflow
+        let backoff = (retry_config.initial_backoff_ledgers as u64)
+            .checked_shl(exponent as u32)
+            .unwrap_or(max_backoff)
+            .min(max_backoff);
 
         retry_state.next_retry_ledger = current_ledger + backoff;
         retry_state.last_retry_ledger = current_ledger;
