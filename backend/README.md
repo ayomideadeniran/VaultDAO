@@ -179,6 +179,16 @@ The backend is a **lightweight support layer** for VaultDAO, not a replacement f
 
 All public endpoints are rate-limited to 100 requests per minute per IP. Return code `429 Too Many Requests` when exceeded.
 
+### CORS (Cross-Origin Resource Sharing)
+
+The backend implements CORS protection to control which origins can access the API.
+
+- **Development/Test**: CORS is permissive or follows the `CORS_ORIGIN` environment variable.
+- **Production**:
+  - Requests with an `Origin` header MUST match the allowed origins specified in `CORS_ORIGIN`.
+  - Disallowed origins receive a `403 Forbidden` response.
+  - Requests without an `Origin` header (e.g., server-to-server calls, `curl`) are allowed.
+
 ## 🚀 Get Started
 
 See the [detailed roadmap](docs/ROADMAP.md) for prioritized tasks.

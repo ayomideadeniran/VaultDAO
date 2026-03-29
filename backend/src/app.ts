@@ -41,6 +41,17 @@ export function createApp(env: BackendEnv, runtime: BackendRuntime) {
     const isAllowed =
       env.corsOrigin.includes("*") || (origin && env.corsOrigin.includes(origin));
 
+    // In production, actively reject disallowed origins with a 403.
+    // Requests with no Origin header (server-to-server, curl) are allowed.
+    if (env.nodeEnv === "production" && origin && !isAllowed) {
+      error(res, {
+        message: "Forbidden: Origin not allowed",
+        status: 403,
+        code: ErrorCode.FORBIDDEN,
+      });
+      return;
+    }
+
     if (isAllowed && origin) {
       res.set("Access-Control-Allow-Origin", origin);
     } else if (env.corsOrigin.includes("*")) {
