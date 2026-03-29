@@ -5,6 +5,7 @@
  * This is the main entry point for the proposal indexing service.
  */
 
+import { createLogger } from "../../shared/logging/logger.js";
 import type { NormalizedEvent } from "../events/types.js";
 import { ProposalEventTransformer, transformEventBatch } from "./transforms.js";
 import {
@@ -31,6 +32,7 @@ const DEFAULT_FLUSH_INTERVAL_MS = 5000;
  * proposal activity records. Supports batch processing for efficiency.
  */
 export class ProposalActivityConsumer {
+  private readonly logger = createLogger("proposal-consumer");
   private buffer: ProposalActivityRecord[] = [];
   private readonly batchSize: number;
   private readonly flushIntervalMs: number;
@@ -67,13 +69,13 @@ export class ProposalActivityConsumer {
    */
   public start(): void {
     if (this.isRunning) {
-      console.debug("[proposal-consumer] already running");
+      this.logger.debug("already running");
       return;
     }
 
     this.isRunning = true;
     this.startFlushTimer();
-    console.debug("[proposal-consumer] started");
+    this.logger.debug("started");
   }
 
   /**
@@ -88,7 +90,7 @@ export class ProposalActivityConsumer {
     this.stopFlushTimer();
     // Final flush attempt for everything including retry buffer
     await this.flush();
-    console.debug("[proposal-consumer] stopped");
+    this.logger.debug("stopped");
   }
 
   /**

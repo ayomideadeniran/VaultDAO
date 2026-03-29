@@ -9,6 +9,7 @@ interface LogMeta {
 }
 
 interface Logger {
+  debug(msg: string, meta?: LogMeta): void;
   info(msg: string, meta?: LogMeta): void;
   warn(msg: string, meta?: LogMeta): void;
   error(msg: string, meta?: LogMeta): void;
@@ -31,6 +32,11 @@ export function createLogger(
     msg: string,
     meta?: LogMeta,
   ): void {
+    // Suppress debug output in production
+    if (level === "debug" && isProduction) {
+      return;
+    }
+
     if (isProduction) {
       consoleFn(
         JSON.stringify({ level, prefix, ts: timestamp(), msg, ...meta }),
@@ -43,6 +49,7 @@ export function createLogger(
   }
 
   return {
+    debug: (msg, meta) => emit("debug", console.debug, msg, meta),
     info: (msg, meta) => emit("info", console.log, msg, meta),
     warn: (msg, meta) => emit("warn", console.warn, msg, meta),
     error: (msg, meta) => emit("error", console.error, msg, meta),

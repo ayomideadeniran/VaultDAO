@@ -5,6 +5,7 @@
  * Designed for efficient querying by dashboards and feeds.
  */
 
+import { createLogger } from "../../shared/logging/logger.js";
 import {
   ProposalActivityRecord,
   ProposalActivitySummary,
@@ -66,6 +67,7 @@ export interface ActivityBucket {
  */
 export class ProposalActivityAggregator {
   private static readonly DEFAULT_MAX_PROPOSALS = 10_000;
+  private readonly logger = createLogger("proposal-aggregator");
 
   private proposalCache: Map<string, ProposalActivityRecord[]> = new Map();
   private proposalLatestActivity: Map<string, ProposalActivityRecord> = new Map();
@@ -105,7 +107,7 @@ export class ProposalActivityAggregator {
       this.onRecordAdded(record);
     }
 
-    console.debug("[proposal-aggregator] added record:", record.activityId);
+    this.logger.debug("added record", { activityId: record.activityId });
   }
 
   /**
