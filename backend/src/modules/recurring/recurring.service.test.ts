@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   MemoryRecurringStorageAdapter,
+  RecurringIndexerService,
   transformRawRecurringPayment,
 } from "./recurring.service.js";
 import { RecurringStatus, RecurringEvent } from "./types.js";
@@ -95,4 +96,50 @@ test("MemoryRecurringStorageAdapter filter by status/proposer/recipient/token/le
 
   const withMaxLedger = await adapter.getAll({maxPaymentLedger: 60});
   assert.equal(withMaxLedger.length, 1);
+});
+
+// --- syncPayment tests ---
+
+function makeTestEnv(): import("../../config/env.js").BackendEnv {
+  return {
+    port: 8787,
+    host: "0.0.0.0",
+    nodeEnv: "test",
+    stellarNetwork: "testnet",
+    sorobanRpcUrl: "https://soroban-testnet.stellar.org",
+    horizonUrl: "https://horizon-testnet.stellar.org",
+    contractId: "CDTEST",
+    websocketUrl: "ws://localhost:8080",
+    eventPollingIntervalMs: 10,
+    eventPollingEnabled: false,
+    duePaymentsJobEnabled: false,
+    duePaymentsJobIntervalMs: 60000,
+    cursorCleanupJobEnabled: false,
+    cursorCleanupJobIntervalMs: 86400000,
+    cursorRetentionDays: 30,
+    corsOrigin: ["*"],
+    requestBodyLimit: "1mb",
+    apiKey: "test-api-key",
+  };
+}
+
+test("syncPayment returns stored payment when found in storage", async () => {
+  const storage = new MemoryRecurringStorageAdapter();
+  const service = new RecurringIndexerService(makeTestEnv(), storage);
+
+  const item = transformRawRecurringPayment(baseRaw, "CDTEST", 1);
+  await storage.save(item);
+
+  const result = await service.syncPayment("r1");
+  assert.deepEqual(result, item);
+});
+
+test("syncPayment throws when payment not in storage (RPC unavailable)", async () => {
+  const storage = new MemoryRecurringStorageAdapter();
+  const service = new RecurringIndexerService(makeTestEnv(), storage);
+
+  await assert.rejects(
+    () => service.syncPayment("unknown-id"),
+    /syncPayment: RPC client not yet available/,
+  );
 });

@@ -294,17 +294,23 @@ export class RecurringIndexerService {
 
   /**
    * Manually sync a single payment by ID.
+   * Falls back to storage when the RPC client is available; until then throws.
    */
   public async syncPayment(
-    _paymentId: string,
+    paymentId: string,
   ): Promise<NormalizedRecurringPayment | null> {
-    // TODO: Implement RPC call to get specific payment
-    // const raw = await this.rpcService.getRecurringPayment(_paymentId);
+    // TODO: replace with RPC fetch once SorobanRpcClient is wired up:
+    // const raw = await this.rpcService.getRecurringPayment(paymentId);
     // if (!raw) return null;
-    // const normalized = transformRawRecurringPayment(raw, this.env.contractId, ...);
+    // const normalized = transformRawRecurringPayment(raw, this.env.contractId, this.lastLedgerProcessed);
     // await this.storage.save(normalized);
     // return normalized;
-    return null;
+
+    // RPC client not yet available — fall back to storage index.
+    const stored = await this.storage.getById(paymentId);
+    if (stored !== null) return stored;
+
+    throw new Error("syncPayment: RPC client not yet available");
   }
 
   /**
