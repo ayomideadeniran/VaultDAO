@@ -25,6 +25,10 @@ import { SnapshotNormalizer } from "./normalizer.js";
 import { EventNormalizer } from "../events/normalizers/index.js";
 import type { SorobanRpcClient } from "../../shared/rpc/soroban-rpc.client.js";
 
+import { createLogger } from "../../shared/logging/logger.js";
+
+const logger = createLogger("snapshot-service");
+
 const REBUILD_BATCH_SIZE = 200;
 
 const TRANSIENT_ERROR_PATTERNS = [
@@ -50,6 +54,22 @@ function isTransientError(err: unknown): boolean {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Validates that a snapshot returned by an adapter has the required Map fields.
+ * Logs a warning and returns false if the snapshot is malformed.
+ */
+function validateSnapshot(snapshot: ContractSnapshot): boolean {
+  if (!(snapshot.signers instanceof Map) || !(snapshot.roles instanceof Map)) {
+    logger.warn("adapter returned snapshot with unexpected type for signers or roles", {
+      contractId: snapshot.contractId,
+      signersType: typeof snapshot.signers,
+      rolesType: typeof snapshot.roles,
+    });
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -83,7 +103,10 @@ export class SnapshotService {
 
     try {
       // Get or create snapshot
-      let snapshot = await this.adapter.getSnapshot(contractId);
+      let snapshot = (await this.adapter.getSnapshot(contractId)) ?? null;
+      if (snapshot !== null && !validateSnapshot(snapshot)) {
+        snapshot = null;
+      }
       if (!snapshot) {
         snapshot = this.createEmptySnapshot(contractId);
       }
@@ -367,54 +390,54 @@ export class SnapshotService {
    * Get current snapshot for a contract.
    */
   async getSnapshot(contractId: string): Promise<ContractSnapshot | null> {
-    return this.adapter.getSnapshot(contractId);
+    const result = (await this.adapter.getSnapshot(contractId)) ?? null;
+    if (result !== null && !validateSnapshot(result)) return null;
+    return result;
   }
 
   /**
    * Get all signers for a contract.
    */
-  async getSigners(
-    contractId: string,
-    filter?: SnapshotFilter,
-  ): Promise<SignerSnapshot[]> {
-    return this.adapter.getSigners(contractId, filter);
+  async getSigners(contractId: string, filter?: SnapshotFilter): Promise<SignerSnapshot[]> {
+    const result = (await this.adapter.getSigners(contractId, filter)) ?? [];
+    if (!Array.isArray(result)) {
+      logger.warn("adapter.getSigners returned unexpected type", { contractId, type: typeof result });
+      return [];
+    }
+    return result.filter((s): s is SignerSnapshot => s != null);
   }
 
   /**
    * Get all role assignments for a contract.
    */
-  async getRoles(
-    contractId: string,
-    filter?: SnapshotFilter,
-  ): Promise<RoleSnapshot[]> {
-    return this.adapter.getRoles(contractId, filter);
+  async getRoles(contractId: string, filter?: SnapshotFilter): Promise<RoleSnapshot[]> {
+    const result = (await this.adapter.getRoles(contractId, filter)) ?? [];
+    if (!Array.isArray(result)) {
+      logger.warn("adapter.getRoles returned unexpected type", { contractId, type: typeof result });
+      return [];
+    }
+    return result.filter((r): r is RoleSnapshot => r != null);
   }
 
   /**
    * Get a specific signer by address.
    */
-  async getSigner(
-    contractId: string,
-    address: string,
-  ): Promise<SignerSnapshot | null> {
-    return this.adapter.getSigner(contractId, address);
+  async getSigner(contractId: string, address: string): Promise<SignerSnapshot | null> {
+    return (await this.adapter.getSigner(contractId, address)) ?? null;
   }
 
   /**
    * Get a specific role assignment by address.
    */
-  async getRole(
-    contractId: string,
-    address: string,
-  ): Promise<RoleSnapshot | null> {
-    return this.adapter.getRole(contractId, address);
+  async getRole(contractId: string, address: string): Promise<RoleSnapshot | null> {
+    return (await this.adapter.getRole(contractId, address)) ?? null;
   }
 
   /**
    * Get snapshot statistics.
    */
   async getStats(contractId: string): Promise<SnapshotStats | null> {
-    return this.adapter.getStats(contractId);
+    return (await this.adapter.getStats(contractId)) ?? null;
   }
 
   /**
