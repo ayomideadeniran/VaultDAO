@@ -20,45 +20,43 @@ test("JobManager.startAll includes failed job names and errors", async () => {
   manager.registerJob(
     createJob("event-polling", () => {
       throw new Error("RPC unavailable");
-    })
+    }),
   );
 
   manager.registerJob(
     createJob("recurring-indexer", () => {
       throw new Error("auth denied");
-    })
+    }),
   );
 
   manager.registerJob(
     createJob("metrics", () => {
       started.push("metrics");
-    })
+    }),
   );
 
-  await assert.rejects(
-    manager.startAll(),
-    (error: unknown) => {
-      assert.ok(error instanceof Error);
-      assert.match(error.message, /2 jobs failed to start:/);
-      assert.match(error.message, /- event-polling: RPC unavailable/);
-      assert.match(error.message, /- recurring-indexer: auth denied/);
-      return true;
-    }
-  );
+  await assert.rejects(manager.startAll(), (error: unknown) => {
+    assert.ok(error instanceof Error);
+    assert.match(error.message, /2 jobs failed to start:/);
+    assert.match(error.message, /- event-polling: RPC unavailable/);
+    assert.match(error.message, /- recurring-indexer: auth denied/);
+    return true;
+  });
 
   assert.deepEqual(started, ["metrics"]);
 });
 
-test("JobManager.stopAll with timeout", async (t) => {
+test("JobManager.stopAll with timeout", async () => {
   const manager = new JobManager();
   const stopped: string[] = [];
 
   const hangingJob: Job = {
     name: "hanging-job",
     start: () => {},
-    stop: () => new Promise<void>((resolve) => {
-      // Never resolves
-    }),
+    stop: () =>
+      new Promise<void>((_resolve) => {
+        // Never resolves
+      }),
     isRunning: () => true,
   };
 
@@ -99,9 +97,10 @@ test("JobManager.stopAll continues after timeout", async () => {
   const hangingJob: Job = {
     name: "hanging-job",
     start: () => {},
-    stop: () => new Promise<void>((_resolve) => {
-      // Never resolves
-    }),
+    stop: () =>
+      new Promise<void>((_resolve) => {
+        // Never resolves
+      }),
     isRunning: () => true,
   };
 
@@ -115,7 +114,7 @@ test("JobManager.stopAll continues after timeout", async () => {
 
   // Should have taken at least 50ms but not much more
   assert.ok(duration >= 50, `Duration was ${duration}ms, expected >= 50ms`);
-  
+
   // Normal job should still be stopped even though hanging job timed out
   assert.deepEqual(stopped, ["normal-job"]);
 });
@@ -133,8 +132,17 @@ test("JobManager.registerJob throws on duplicate registration by default", () =>
 test("JobManager.registerJob with replace:true silently replaces existing job", () => {
   const manager = new JobManager();
   const started: string[] = [];
-  manager.registerJob(createJob("my-job", () => { started.push("original"); }));
-  manager.registerJob(createJob("my-job", () => { started.push("replacement"); }), { replace: true });
+  manager.registerJob(
+    createJob("my-job", () => {
+      started.push("original");
+    }),
+  );
+  manager.registerJob(
+    createJob("my-job", () => {
+      started.push("replacement");
+    }),
+    { replace: true },
+  );
   assert.equal(manager.getAllJobs().length, 1);
   manager.getAllJobs()[0].start();
   assert.deepEqual(started, ["replacement"]);

@@ -135,7 +135,7 @@ export class EventPollingService {
         this.consecutiveErrors = 0;
       } catch (error) {
         this.consecutiveErrors++;
-        
+
         // Handle timeout errors with additional context
         if (error instanceof TimeoutError) {
           this.logger.error("RPC timeout during poll", {
@@ -191,9 +191,9 @@ export class EventPollingService {
    */
   private async handleBatch(events: ContractEvent[]): Promise<void> {
     this.logger.info(`processing batch of ${events.length} events`);
-    
+
     let duplicateCount = 0;
-    
+
     for (const event of events) {
       // Check if event has already been processed
       if (event.id && this.processedEventIds.has(event.id)) {
@@ -213,11 +213,16 @@ export class EventPollingService {
         // Maintain bounded set size (FIFO eviction)
         if (this.processedEventIds.size > this.MAX_PROCESSED_IDS) {
           const firstId = this.processedEventIds.values().next().value;
-          this.processedEventIds.delete(firstId);
-          this.logger.debug("processedEventIds at capacity, removing oldest entry", {
-            removedId: firstId,
-            currentSize: this.processedEventIds.size,
-          });
+          if (firstId !== undefined) {
+            this.processedEventIds.delete(firstId);
+            this.logger.debug(
+              "processedEventIds at capacity, removing oldest entry",
+              {
+                removedId: firstId,
+                currentSize: this.processedEventIds.size,
+              },
+            );
+          }
         }
       }
 
@@ -254,7 +259,10 @@ export class EventPollingService {
       }
 
       // Snapshot events → snapshotService
-      if (this.snapshotService && SnapshotNormalizer.isSnapshotEvent(normalized.type as any)) {
+      if (
+        this.snapshotService &&
+        SnapshotNormalizer.isSnapshotEvent(normalized.type as any)
+      ) {
         try {
           await this.snapshotService.processEvent(normalized as any);
         } catch (error) {
