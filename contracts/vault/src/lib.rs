@@ -4562,6 +4562,117 @@ impl VaultDAO {
         Ok(proposal_id)
     }
 
+    /// Execute a swap proposal (executors only)
+    pub fn execute_swap(env: Env, executor: Address, proposal_id: u64) -> Result<(), VaultError> {
+        executor.require_auth();
+
+        // Get proposal
+        let mut proposal = storage::get_proposal(&env, proposal_id)?;
+
+        // Validate state
+        if !proposal.is_swap {
+            return Err(VaultError::DexError);
+        }
+        if proposal.status != ProposalStatus::Approved {
+            return Err(VaultError::ProposalNotApproved);
+        }
+        if proposal.status == ProposalStatus::Executed {
+            return Err(VaultError::ProposalAlreadyExecuted);
+        }
+
+        // Check expiration
+        let current_ledger = env.ledger().sequence() as u64;
+        if current_ledger > proposal.expires_at {
+            proposal.status = ProposalStatus::Expired;
+            storage::set_proposal(&env, &proposal);
+            storage::metrics_on_expiry(&env);
+            events::emit_proposal_expired(&env, proposal_id, proposal.expires_at);
+            return Err(VaultError::ProposalExpired);
+        }
+
+        // Check Timelock
+        if proposal.unlock_ledger > 0 && current_ledger < proposal.unlock_ledger {
+            return Err(VaultError::TimelockNotExpired);
+        }
+
+        // Get DEX config and swap details
+        let dex_config = storage::get_dex_config(&env).ok_or(VaultError::DexError)?;
+        let swap_proposal =
+            storage::get_swap_proposal(&env, proposal_id).ok_or(VaultError::DexError)?;
+
+        // Perform the swap (mock implementation - in real implementation, call DEX contract)
+        let swap_result = Self::perform_swap(&env, &dex_config, &swap_proposal)?;
+
+        // Store result
+        storage::set_swap_result(&env, proposal_id, &swap_result);
+
+        // Update proposal status
+        proposal.status = ProposalStatus::Executed;
+        storage::set_proposal(&env, &proposal);
+        storage::extend_instance_ttl(&env);
+
+        // Emit execution event
+        events::emit_proposal_executed(
+            &env,
+            proposal_id,
+            &executor,
+            &env.current_contract_address(),
+            &env.current_contract_address(),
+            0,
+            current_ledger,
+        );
+
+        // Update reputation and metrics
+        Self::update_reputation_on_execution(&env, &proposal);
+        let execution_time = current_ledger.saturating_sub(proposal.created_at);
+        storage::metrics_on_execution(&env, proposal.gas_used, execution_time);
+
+        Ok(())
+    }
+
+    /// Perform the actual swap operation (mock implementation)
+    fn perform_swap(
+        env: &Env,
+        dex_config: &DexConfig,
+        swap_proposal: &SwapProposal,
+    ) -> Result<SwapResult, VaultError> {
+        match swap_proposal {
+            SwapProposal::Swap(dex, token_in, token_out, amount_in, min_amount_out) => {
+                // Check if DEX is enabled
+                if !dex_config.enabled_dexs.contains(dex) {
+                    return Err(VaultError::DexError);
+                }
+
+                // Mock: assume swap succeeds with 1% slippage
+                let mock_price_impact_bps = 100; // 1%
+                if mock_price_impact_bps > dex_config.max_price_impact_bps {
+                    return Err(VaultError::DexError);
+                }
+
+                let mock_amount_out = *amount_in * 99 / 100; // 1% slippage
+                if mock_amount_out < *min_amount_out {
+                    return Err(VaultError::DexError);
+                }
+
+                Ok(SwapResult {
+                    amount_in: *amount_in,
+                    amount_out: mock_amount_out,
+                    price_impact_bps: mock_price_impact_bps,
+                    executed_at: env.ledger().sequence() as u64,
+                })
+            }
+            _ => {
+                // For other swap types, just return a mock result
+                Ok(SwapResult {
+                    amount_in: 1000,
+                    amount_out: 990,
+                    price_impact_bps: 100,
+                    executed_at: env.ledger().sequence() as u64,
+                })
+            }
+        }
+    }
+
     pub fn register_pre_hook(env: Env, admin: Address, hook: Address) -> Result<(), VaultError> {
         admin.require_auth();
         let role = storage::get_role(&env, &admin);
@@ -5960,6 +6071,11 @@ impl VaultDAO {
         new_threshold: u32,
     ) -> Result<u64, VaultError> {
         caller.require_auth();
+
+        let config = storage::get_config(&env)?;
+        if !config.recovery_config.guardians.contains(&caller) {
+            return Err(VaultError::Unauthorized);
+        }
 
         // Validate new config
         if new_signers.is_empty() {
