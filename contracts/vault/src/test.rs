@@ -8772,6 +8772,7 @@ fn test_escrow_invalid_milestone_id_fails() {
         &1000u64,
         &admin,
     );
+    assert_eq!(round_id, 1);
 
     // Milestone ID 99 doesn't exist
     let res = client.try_complete_milestone(&funder, &escrow_id, &99u64);
